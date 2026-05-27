@@ -27,6 +27,15 @@ class CbossTicketProcessor:
         if pd.isna(value) or str(value).strip().lower() in ['nan', 'none', '']:
             return None
         return value
+    
+    def format_datetime(self, dt_value):
+        """Convert pandas Timestamp / datetime jadi string yang aman untuk MySQL"""
+        if pd.isna(dt_value):
+            return None
+        try:
+            return pd.to_datetime(dt_value).strftime('%Y-%m-%d %H:%M:%S')
+        except:
+            return None
 
     def process_file(self, excel_path: str):
         logger.info(f"Processing file: {excel_path}")
@@ -70,9 +79,11 @@ class CbossTicketProcessor:
                                 'trouble_category': self.clean_value(row.iloc[19] if len(row) > 19 else None),
                                 'detail_action': self.clean_value(row.iloc[9] if len(row) > 9 else None),
                                 'status': self.clean_value(row.iloc[20] if len(row) > 20 else None),
-                                'ticket_start': parse_excel_date(row.iloc[11] if len(row) > 11 else None),
-                                'ticket_end': parse_excel_date(row.iloc[14] if len(row) > 14 else None),
-                                'ticket_last_update': parse_excel_date(row.iloc[18] if len(row) > 18 else None),
+                                
+                                # Format datetime jadi string
+                                'ticket_start': self.format_datetime(row.iloc[13] if len(row) > 13 else None),
+                                'ticket_end': self.format_datetime(row.iloc[14] if len(row) > 14 else None),
+                                'ticket_last_update': self.format_datetime(row.iloc[18] if len(row) > 18 else None),
                             }
 
                             # === Logic import sama seperti sebelumnya ===
