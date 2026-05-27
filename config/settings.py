@@ -26,7 +26,7 @@ class Settings:
     @staticmethod
     def get_report_url():
         today = datetime.now()
-        six_months_ago = today - timedelta(days=30)  # approx 6 bulan
+        six_months_ago = today - timedelta(days=60)  # approx 6 bulan
         
         start = six_months_ago.strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")
