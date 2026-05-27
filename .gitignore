@@ -1,0 +1,23 @@
+
+---
+
+### 2. `.gitignore`
+
+```gitignore
+# Environment
+.env
+*.pyc
+__pycache__/
+
+# Logs & Downloads
+logs/
+downloads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

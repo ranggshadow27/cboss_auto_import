@@ -1,0 +1,8 @@
+playwright
+pandas
+openpyxl
+mysql-connector-python
+python-dotenv
+loguru
+lxml
+html5lib
