@@ -66,12 +66,15 @@ class CbossTicketProcessor:
                             # Skip baris kosong
                             if len(row) < 6 or (pd.isna(row.iloc[0]) and pd.isna(row.iloc[4])):
                                 continue
-
-                            subscriber_number = str(row.iloc[4]).strip() if not pd.isna(row.iloc[4]) else ''
-                            if not subscriber_number:
+                            
+                            ticket_id = str(row.iloc[1]).strip()   # Kolom B = index 1
+                            if not ticket_id or ticket_id.lower() == 'nan':
                                 continue
 
+                            subscriber_number = str(row.iloc[4]).strip() if len(row) > 4 and not pd.isna(row.iloc[4]) else ''
+
                             mapped = {
+                                'ticket_id': ticket_id,
                                 'site_id': subscriber_number,
                                 'province': self.proper_case(row.iloc[26] if len(row) > 26 else None),
                                 'spmk': self.clean_value(row.iloc[2] if len(row) > 2 else None),
@@ -85,6 +88,10 @@ class CbossTicketProcessor:
                                 'ticket_end': self.format_datetime(row.iloc[14] if len(row) > 14 else None),
                                 'ticket_last_update': self.format_datetime(row.iloc[18] if len(row) > 18 else None),
                             }
+                            
+                            if not mapped['site_id']:
+                                skipped_count += 1
+                                continue
 
                             # === Logic import sama seperti sebelumnya ===
                             cursor = conn.cursor()
@@ -96,39 +103,38 @@ class CbossTicketProcessor:
                                 skipped_count += 1
                                 continue
 
-                            # Cek existing ticket
-                            existing = None
-                            if mapped['ticket_start']:
-                                cursor.execute("""
-                                    SELECT ticket_id, status FROM cboss_tickets 
-                                    WHERE ticket_start = %s AND site_id = %s LIMIT 1
-                                """, (mapped['ticket_start'], mapped['site_id']))
-                                existing = cursor.fetchone()
-
-                            if existing and str(existing[1]).lower() == 'closed':
-                                close_skipped_count += 1
-                                cursor.close()
-                                continue
-
-                            ticket_id = existing[0] if existing else self.generate_ticket_id(conn)
-
-                            # Insert / Update
+                            # Insert or Update berdasarkan ticket_id
                             cursor.execute("""
                                 INSERT INTO cboss_tickets 
                                 (ticket_id, site_id, province, spmk, problem_map, trouble_category, 
-                                 status, detail_action, ticket_start, ticket_end, ticket_last_update, updated_at, created_at)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                                 status, detail_action, ticket_start, ticket_end, ticket_last_update, updated_at)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                                 ON DUPLICATE KEY UPDATE
-                                province=VALUES(province), spmk=VALUES(spmk), problem_map=VALUES(problem_map),
-                                trouble_category=VALUES(trouble_category), status=VALUES(status),
-                                detail_action=VALUES(detail_action), ticket_end=VALUES(ticket_end),
-                                ticket_last_update=VALUES(ticket_last_update), updated_at=NOW(), created_at=NOW()
+                                site_id=VALUES(site_id),
+                                province=VALUES(province), 
+                                spmk=VALUES(spmk), 
+                                problem_map=VALUES(problem_map),
+                                trouble_category=VALUES(trouble_category), 
+                                status=VALUES(status),
+                                detail_action=VALUES(detail_action), 
+                                ticket_start=VALUES(ticket_start),
+                                ticket_end=VALUES(ticket_end),
+                                ticket_last_update=VALUES(ticket_last_update), 
+                                updated_at=NOW()
                             """, (
-                                ticket_id, mapped['site_id'], mapped['province'], mapped['spmk'],
-                                mapped['problem_map'], mapped['trouble_category'], mapped['status'],
-                                mapped['detail_action'], mapped['ticket_start'], mapped['ticket_end'],
+                                mapped['ticket_id'],
+                                mapped['site_id'],
+                                mapped['province'],
+                                mapped['spmk'],
+                                mapped['problem_map'],
+                                mapped['trouble_category'],
+                                mapped['status'],
+                                mapped['detail_action'],
+                                mapped['ticket_start'],
+                                mapped['ticket_end'],
                                 mapped['ticket_last_update']
                             ))
+                            
                             conn.commit()
                             success_count += 1
                             cursor.close()
